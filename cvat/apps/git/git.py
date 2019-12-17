@@ -76,13 +76,8 @@ class Git:
     # HTTP/HTTPS: [http://]github.com/proj/repos[.git]
     def _parse_url(self):
         try:
-            # Almost STD66 (RFC3986), but schema can include a leading digit
-            # Reference on URL formats accepted by Git:
-            # https://github.com/git/git/blob/77bd3ea9f54f1584147b594abc04c26ca516d987/url.c
-
-            host_pattern = r"((?:(?:(?:\d{1,3}\.){3}\d{1,3})|(?:[a-zA-Z0-9._-]+.[a-zA-Z]+))(?::\d+)?)"
-            http_pattern = r"(?:http[s]?://)?" + host_pattern + r"((?:/[a-zA-Z0-9._-]+){2})"
-            ssh_pattern = r"([a-zA-Z0-9._-]+)@" + host_pattern + r":([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)"
+            http_pattern = "([https|http]+)*[://]*([a-zA-Z0-9._-]+.[a-zA-Z]+)/([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)"
+            ssh_pattern = "([a-zA-Z0-9._-]+)@([a-zA-Z0-9._-]+):([a-zA-Z0-9._-]+)/([a-zA-Z0-9._-]+)"
 
             http_match = re.match(http_pattern, self._url)
             ssh_match = re.match(ssh_pattern, self._url)
@@ -92,21 +87,21 @@ class Git:
             repos = None
 
             if http_match:
-                host = http_match.group(1)
-                repos = http_match.group(2)[1:]
+                host = http_match.group(2)
+                repos = "{}/{}".format(http_match.group(3), http_match.group(4))
             elif ssh_match:
                 user = ssh_match.group(1)
                 host = ssh_match.group(2)
                 repos = "{}/{}".format(ssh_match.group(3), ssh_match.group(4))
             else:
-                raise Exception("Git repository URL does not satisfy pattern")
+                raise Exception("Got URL doesn't sutisfy for regular expression")
 
             if not repos.endswith(".git"):
                 repos += ".git"
 
             return user, host, repos
         except Exception as ex:
-            slogger.glob.exception('URL parsing errors occurred', exc_info = True)
+            slogger.glob.exception('URL parsing errors occured', exc_info = True)
             raise ex
 
 
@@ -433,12 +428,11 @@ def get(tid, user):
                     response['status']['value'] = str(db_git.status)
                 except git.exc.GitCommandError as ex:
                     _have_no_access_exception(ex)
-            db_git.save()
         except Exception as ex:
             db_git.status = GitStatusChoice.NON_SYNCED
-            db_git.save()
             response['status']['error'] = str(ex)
 
+    db_git.save()
     return response
 
 def update_states():

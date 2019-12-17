@@ -1,7 +1,7 @@
 # Copyright (C) 2018 Intel Corporation
 #
-# SPDX-License-Identifier: MIT
-
+# SPDX-License-Identifiier: MIT
+import psycopg2
 import os
 from enum import Enum
 from collections import OrderedDict
@@ -15,12 +15,12 @@ from cvat.apps.profiler import silk_profile
 from cvat.apps.engine.plugins import plugin_decorator
 from cvat.apps.annotation.annotation import AnnotationIR, Annotation
 from cvat.apps.engine.utils import execute_python_code, import_modules
-
+import json
 from . import models
 from .data_manager import DataManager
 from .log import slogger
 from . import serializers
-
+print('hello anno',flush=True)
 """dot.notation access to dictionary attributes"""
 class dotdict(OrderedDict):
     __getattr__ = OrderedDict.get
@@ -109,10 +109,304 @@ def patch_task_data(pk, user, data, action):
 @transaction.atomic
 def load_task_data(pk, user, filename, loader):
     annotation = TaskAnnotation(pk, user)
+    print('hello anno load_task_data',flush=True)
+    print(filename,loader)
     annotation.upload(filename, loader)
+
+def get_classes(s_id):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        c_list=[]
+        query = "select classes_id from uvdata_sites_site_classes where sites_id =%s"
+        cur.execute(query,(s_id,))
+        model_records = cur.fetchall()
+        for x in model_records:
+    #        query_cname = "select class_name from uvdata_classes where id =%s"
+    #        cur.execute(query,(x[0],))
+    #        c_name = cur.fetchone()
+            c_list.append(x[0])
+        return(c_list)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get classes q1",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+####################
+def get_images(s_id,d_id,c_id,port):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        c_list = []
+        query = "select id,x,y,w,h,image_id,box_class,filename,classifier from uvdata_bbox where site_id =%s and date_id=%s and box_type=%s and cam_id=%s and session=%s and port=%s and completed=%s"
+        cur.execute(query,(s_id,d_id,'human',c_id,True,port,True))
+        model_records = cur.fetchall()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get images q2",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+   # bbox_imgs = bbox.objects.filter(date_id = d_id).filter(site_id=s_id).filter(date_id=d_id).filter(box_type="human")
+   # return(bbox_imgs)
+
+
+
+def get_class_name(c_id):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        c_list = []
+        query = "select class_name from uvdata_classes where id =%s "
+        cur.execute(query,(c_id,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get class name q3",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+
+def get_class_id(c_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        c_list = []
+        query = "select id from uvdata_classes where class_name =%s "
+        cur.execute(query,(c_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get class id q4",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+
+def get_filename(i_id):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        c_list = []
+        query = "select filename from uvdata_images where id =%s"
+        cur.execute(query,(i_id,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get file q5",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+
+def get_distinct_images(s_id,d_id,c_id,port):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        c_list = []
+        query = "select distinct on (image_id) height,width,image_id,filename,task_id from uvdata_bbox where site_id =%s and date_id=%s and box_type=%s and cam_id=%s and session=%s and port =%s and completed=%s"
+        cur.execute(query,(s_id,d_id,'human',c_id,True,port,True))
+        model_records = cur.fetchall()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get distinct images q6",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+   # bbox_imgs = bbox.objects.filter(date_id = d_id).filter(site_id=s_id).filter(date_id=d_id).filter(box_type="human")
+   # return(bbox_imgs)
+
+
+
+#####################
+def get_annotations(p_id,s_id,d_id,c_id,p_name,s_name,d_name,c_name,port):
+    import xml.etree.ElementTree as ET
+    import json
+
+    class_ids = get_classes(s_id[0])
+    image_ids  = get_images(s_id[0],d_id[0],c_id[0],port)
+    distinct_images = get_distinct_images(s_id[0],d_id[0],c_id[0],port)
+    if not image_ids:
+        data = {}
+        return data
+    data = ET.Element('annotations')
+####
+    meta = ET.SubElement(data,'meta')
+    task = ET.SubElement(meta,'task')
+    labels = ET.SubElement(task,'labels')
+    label  = ET.SubElement(labels,'label')
+    name  = ET.SubElement(label,'name')
+    name.text = 'Head'
+    attributes  = ET.SubElement(label,'attributes')
+    attribute  = ET.SubElement(attributes,'attribute')
+    name  = ET.SubElement(attribute,'name')
+    mutable  = ET.SubElement(attribute,'mutable')
+    input_type  = ET.SubElement(attribute,'input_type')
+    default_value  = ET.SubElement(attribute,'default_value')
+    values  = ET.SubElement(attribute,'values')
+    name.text = 'Face'
+    mutable.text = 'False'
+    input_type.text = 'select'
+    default_value.text='FACE'
+    values.text = 'FACE NOFACE' 
+     
+    attribute  = ET.SubElement(attributes,'attribute')
+    name  = ET.SubElement(attribute,'name')
+    mutable  = ET.SubElement(attribute,'mutable')
+    input_type  = ET.SubElement(attribute,'input_type')
+    default_type  = ET.SubElement(attribute,'default_value')
+    values  = ET.SubElement(attribute,'values')
+    name.text = 'Type'
+    mutable.text = 'False'
+    input_type.text = 'select'
+    default_value.text='NONE'
+    values.text = 'NONE FACEMASK/SCARF CAP/TURBAN'
+
+    label  = ET.SubElement(labels,'label')
+    name  = ET.SubElement(label,'name')
+    name.text = 'Body'
+    attributes  = ET.SubElement(label,'attributes')
+    
+
+     
+####
+    for x in distinct_images:
+        image = ET.SubElement(data, 'image')
+        #image.set('id',str(x[2]))
+        image.set('id',str(x[4]))
+        image.set('name',str(x[3]))
+        image.set('width',str(x[1]))
+        image.set('height',str(x[0]))
+        for y in image_ids:
+            if x[2] == y[5]:
+                box   = ET.SubElement(image, 'box')
+                box.set('label',str(y[6]))
+                box.set('occluded','0')
+                box.set('xtl',str(y[1]))
+                box.set('ytl',str(y[2]))
+                box.set('xbr',str(y[3]+y[1]))
+                box.set('ybr',str(y[4]+y[2]))
+                if y[6] == "Head":
+                    attr1      = ET.SubElement(box, 'attribute')
+                    attr2      = ET.SubElement(box, 'attribute')
+                    attr1.set('name','Face')
+                    attr2.set('name','Type')
+                    attr1.text = str(y[8]['Face'])
+                    attr2.text = str(y[8]['Type'])
+    mydata = ET.tostring(data)
+    return(mydata)
+
+
+def get_projects(p_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_projects where project_name=%s"
+        cur.execute(query,(p_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get project name q7",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_sites(s_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_sites where site_name=%s"
+        cur.execute(query,(s_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get site name q8",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_dates(d_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_dates where date=%s"
+        cur.execute(query,(d_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get date id q9",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_cams(c_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_cam_id where cam_id=%s"
+        cur.execute(query,(c_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get date id q10",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def remove_in_progress(c_id):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "update uvdata_bbox set session=%s and set port=%s where cam_id=%s"
+        cur.execute(query,('False',None,c_id))
+        con.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("could not update bbox q11",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
 
 @transaction.atomic
 def load_job_data(pk, user, filename, loader):
+    from xml.dom import minidom
+    path= os.environ['ANNOTATE_PATH']
+    port= os.environ['CVAT_PORT']
+    p_name= path.split('/')[3]
+    s_name= path.split('/')[4]
+    d_name= path.split('/')[5]
+    c_name = path.split('/')[6]
+   
+    p_id   = get_projects(p_name)
+    s_id   = get_sites(s_name)
+    d_id   = get_dates(d_name)
+    c_id   = get_cams(c_name)
+    upload_anno = get_annotations(p_id,s_id,d_id,c_id,p_name,s_name,d_name,c_name,port)
+    print(upload_anno,flush=True)
+    dump_file = "/data/downloads/{}/{}/{}/human_anno.xml".format(path.split('/')[3],path.split('/')[4],path.split('/')[5])
+ #   if os.path.exists(dump_file):
+ #       os.remove(dump_file)
+
+    myfile = open(dump_file, "w+")
+    myfile.write(upload_anno.decode("utf-8"))
+    myfile.close()     
+
+    filename = dump_file
     annotation = JobAnnotation(pk, user)
     annotation.upload(filename, loader)
 
@@ -640,7 +934,12 @@ class JobAnnotation:
         self.delete()
         db_format = loader.annotation_format
         with open(annotation_file, 'rb') as file_object:
+            print('upload def',flush=True)
+            print(annotation_file,flush=True)
+        #    deta = json.load(file_object)
+         #   print(deta,flush=True)
             source_code = open(os.path.join(settings.BASE_DIR, db_format.handler_file.name)).read()
+            print(os.path.join(settings.BASE_DIR, db_format.handler_file.name),flush=True)
             global_vars = globals()
             imports = import_modules(source_code)
             global_vars.update(imports)
@@ -749,6 +1048,7 @@ class TaskAnnotation:
         db_format = loader.annotation_format
         with open(annotation_file, 'rb') as file_object:
             source_code = open(os.path.join(settings.BASE_DIR, db_format.handler_file.name)).read()
+            print(os.path.join(settings.BASE_DIR, db_format.handler_file.name),flush=True)
             global_vars = globals()
             imports = import_modules(source_code)
             global_vars.update(imports)

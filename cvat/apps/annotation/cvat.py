@@ -163,12 +163,138 @@ def create_xml_dumper(file_object):
 
     return XmlAnnotationWriter(file_object)
 
+################
+def get_date(date_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_dates where date=%s"
+        cur.execute(query,(date_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get cam name qqq7",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_project(project_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_projects where project_name=%s"
+        cur.execute(query,(project_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get cam name qqq7",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_site(site_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_sites where site_name=%s"
+        cur.execute(query,(site_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get cam name qqq7",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_cam_id(cam_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_cam_id where cam_id=%s"
+        cur.execute(query,(cam_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get cam name qqq7",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def get_image_id(file_name):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "select id from uvdata_images where filename=%s"
+        cur.execute(query,(file_name,))
+        model_records = cur.fetchone()
+        return(model_records)
+    except (Exception, psycopg2.Error) as error:
+        print("could not get cam name qqq7",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+
+def remove_bbox(d_id,filename):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        query = "delete from uvdata_bbox where date_id=%s and filename=%s and box_type=%s"
+        cur.execute(query,(d_id,filename,'human'))
+        con.commit()
+
+    except (Exception, psycopg2.Error) as error:
+        print("could not remove bbox qqq2",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+def update_bbox(bbox,height,width,box_class,attributes,file_name,p_id,s_id,d_id,c_id,port,date_name,i_id,count):
+    try:
+        con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+        cur = con.cursor()
+        psycopg2.extras.register_hstore(con)
+        query = "insert into uvdata_bbox(x,y,w,h,box_type,box_class,height,width,date_created,conf,session,port,completed,classifier,filename,cam_id,date_id,image_id,site_id,task_id) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        cur.execute(query,(bbox[0],bbox[1],bbox[2]-bbox[0],bbox[3]-bbox[1],"human",box_class,height,width,date_name,1,True,port,True,attributes,file_name,c_id,d_id,i_id,s_id,count))
+        con.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("could not update bbox qq12",error)
+    finally:
+        if (con):
+            cur.close()
+            con.close()
+
+
+
+
 def dump_as_cvat_annotation(file_object, annotations):
     from collections import OrderedDict
+    import os
+    import psycopg2
+    import psycopg2.extras
+    import json
     dumper = create_xml_dumper(file_object)
     dumper.open_root()
     dumper.add_meta(annotations.meta)
-
+    data_path = os.environ['ANNOTATE_PATH']
+    port = os.environ['CVAT_PORT']
+#######
+    project_name = data_path.split('/')[3]
+    site_name = data_path.split('/')[4]
+    date_name = data_path.split('/')[5]
+    cam_name  = data_path.split('/')[6]
+    p_id      = get_project(project_name)[0]
+    s_id      = get_site(site_name)[0]
+    d_id      = get_date(date_name)[0]
+    c_id      = get_cam_id(cam_name)[0]
+    count     = 0
+######
     for frame_annotation in annotations.group_by_frame():
         frame_id = frame_annotation.frame
         dumper.open_image(OrderedDict([
@@ -177,8 +303,18 @@ def dump_as_cvat_annotation(file_object, annotations):
             ("width", str(frame_annotation.width)),
             ("height", str(frame_annotation.height))
         ]))
-
+#####      
+        file_name = frame_annotation.name
+        i_id      = get_image_id(file_name)[0]
+        remove_bbox(d_id,file_name)
+#####
+        bbox_attributes = []
         for shape in frame_annotation.labeled_shapes:
+            tmp={}
+            tmp["bbox"]= [shape.points[0],shape.points[1],shape.points[2],shape.points[3]]
+            tmp["width"]=frame_annotation.width
+            tmp["height"]=frame_annotation.height
+            tmp["box_class"] = shape.label
             dump_data = OrderedDict([
                 ("label", shape.label),
                 ("occluded", str(int(shape.occluded))),
@@ -216,13 +352,22 @@ def dump_as_cvat_annotation(file_object, annotations):
                 dumper.open_points(dump_data)
             else:
                 raise NotImplementedError("unknown shape type")
-
+            tmp["attributes"] = {}
             for attr in shape.attributes:
                 dumper.add_attribute(OrderedDict([
                     ("name", attr.name),
                     ("value", attr.value)
                 ]))
+                tmp["attributes"][attr.name] = attr.value
+            bbox_attributes.append(tmp)
+#######   
+            if not tmp["attributes"]: 
+                tmp["attributes"] = {"id":"1"}
+            update_bbox(tmp["bbox"],tmp["height"],tmp["width"],tmp["box_class"],json.dumps(tmp["attributes"]),file_name,p_id,s_id,d_id,c_id,port,date_name,i_id,count)
 
+
+
+######                
             if shape.type == "rectangle":
                 dumper.close_box()
             elif shape.type == "polygon":
@@ -235,12 +380,15 @@ def dump_as_cvat_annotation(file_object, annotations):
                 raise NotImplementedError("unknown shape type")
 
         dumper.close_image()
+        count  = count + 1
+        print(bbox_attributes,flush=True)
     dumper.close_root()
 
 def dump_as_cvat_interpolation(file_object, annotations):
     from collections import OrderedDict
     dumper = create_xml_dumper(file_object)
     dumper.open_root()
+    print('hellllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllooooooooooooooooo',flush=True)
     dumper.add_meta(annotations.meta)
     def dump_track(idx, track):
         track_id = idx

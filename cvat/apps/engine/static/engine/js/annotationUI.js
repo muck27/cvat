@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Intel Corporation
+ * Copyright (C) 2018 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  */
@@ -68,8 +68,10 @@ function blurAllElements() {
 function uploadAnnotation(jobId, shapeCollectionModel, historyModel, annotationSaverModel,
     uploadAnnotationButton, format) {
     $('#annotationFileSelector').attr('accept', `.${format.format}`);
+
     $('#annotationFileSelector').one('change', async (changedFileEvent) => {
         const file = changedFileEvent.target.files['0'];
+        alert(file);
         changedFileEvent.target.value = '';
         if (!file) return;
         uploadAnnotationButton.prop('disabled', true);
@@ -382,13 +384,6 @@ function setupMenu(job, task, shapeCollectionModel,
     $('#settingsButton').on('click', () => {
         hide();
         $('#settingsWindow').removeClass('hidden');
-    });
-
-    $('#openTaskButton').on('click', () => {
-        const win = window.open(
-            `${window.UI_URL}/tasks/${window.cvat.job.task_id}`, '_blank'
-        );
-        win.focus();
     });
 
     $('#settingsButton').attr('title', `

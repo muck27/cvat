@@ -1,7 +1,6 @@
 # Copyright (C) 2018 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
-
 format_spec = {
     "name": "COCO",
     "dumpers": [
@@ -58,6 +57,8 @@ def mask_to_polygon(mask, tolerance=1.0, area_threshold=1):
                 polygons.append(reshaped_contour)
     return polygons
 
+
+bbox_attributes=[]
 def dump(file_object, annotations):
     import numpy as np
     import json
@@ -285,7 +286,12 @@ def dump(file_object, annotations):
                     polygon['points'] = [xtl, ytl, xbr, ytl, xbr, ybr, xtl, ybr]
 
                 polygons.append(polygon)
-
+            for attr in shape.attributes:
+                tmp={}
+                tmp["name"]=attr.name
+                tmp["value"]=attr.value
+                tmp["image_id"]=segm_id
+                bbox_attributes.append(tmp)
         polygons.sort(key=lambda x: int(x['z_order']))
 
         # Create new image
@@ -318,10 +324,153 @@ def dump(file_object, annotations):
         for poly in polygons:
             insert_annotation_data(img, category_map, segm_id, poly, result_annotation)
             segm_id += 1
-
+    print(bbox_attributes,flush=True)
     file_object.write(json.dumps(result_annotation, indent=2).encode())
     file_object.flush()
 
+#############
+    import psycopg2
+    def get_meta(filename):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "select id,cam_id,date_id,site_id from uvdata_images where filename=%s"
+            cur.execute(query,(filename,))
+            model_records = cur.fetchone()
+            return(model_records)
+        except (Exception, psycopg2.Error) as error:
+            print("could not get filename qqq1",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+
+    def remove_bbox(i_id):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "delete from uvdata_bbox where image_id=%s and box_type=%s"
+            cur.execute(query,(i_id,'human'))
+            con.commit()
+
+        except (Exception, psycopg2.Error) as error:
+            print("could not remove bbox qqq2",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+
+    def update_image_table(i_id):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "update uvdata_images set human_or_not=(%s) where id=(%s)"
+            cur.execute(query,(True,i_id))
+            con.commit()
+
+        except (Exception, psycopg2.Error) as error:
+            print("could not update image qqq5",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+
+
+    def send_bbox(i_meta,bbox,i_height,i_width,date_created,class_name,port):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "insert into uvdata_bbox(x, y, w, h, box_type, box_class, height, width, date_created, conf, cam_id, date_id, image_id, site_id,session,port,completed) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" 
+            cur.execute(query,(bbox[0],bbox[1],bbox[2],bbox[3],"human",class_name,i_height,i_width,date_created,1,i_meta[1],i_meta[2],i_meta[0],i_meta[3],True,port,True))
+            con.commit()
+ 
+        except (Exception, psycopg2.Error) as error:
+            print("could not send bbox qqq6",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+    
+
+    def get_cam_name(s_id):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "select cam_id from uvdata_cam_id where id=%s"
+            cur.execute(query,(s_id,))
+            model_records = cur.fetchone()
+            return(model_records)
+        except (Exception, psycopg2.Error) as error:
+            print("could not get cam name qqq7",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+
+    def send_ann_table(port,filename,cam):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "insert into uvdata_ann_tasks(port,filename,cam_id) values(%s,%s,%s)"
+            cur.execute(query,(port,filename,cam))
+            con.commit()
+
+        except (Exception, psycopg2.Error) as error:
+            print("could not send ann table qqq8",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+    
+    def check_ann_table(port,filename,cam):
+        try:
+            con = psycopg2.connect(host="uvdb4uv.c9hdyw02xzd1.ap-south-1.rds.amazonaws.com",database="uvdb4uv1",user="postgres",password="uvdbuvdb")
+            cur = con.cursor()
+            query = "select * from uvdata_ann_tasks where filename=%s and cam_id=%s"
+            cur.execute(query,(filename,cam))
+            model_records = cur.fetchall()
+            return(model_records)
+        except (Exception, psycopg2.Error) as error:
+            print("could not check ann table qqq9",error)
+        finally:
+            if (con):
+                cur.close()
+                con.close()
+
+
+
+
+    with open(file_object.name) as json_file:
+        u_data= json.load(json_file)
+    print(u_data,flush=True)
+    
+    image_list= u_data["images"]
+    date_created = u_data["info"]["date_created"]
+    anno_list = u_data["annotations"]
+    category_list = u_data["categories"]
+    port = os.environ['CVAT_PORT'] 
+    for i in image_list:
+        i_filename = i["file_name"]
+        i_height = i["height"]
+        i_width = i["width"]
+        i_meta  = get_meta(i_filename)
+        i_id = i["id"]
+        i_cam = get_cam_name(i_meta[1])[0]
+        remove_bbox(i_meta[0])
+        for a in anno_list:
+            if a["image_id"] == i_id:
+                for c in category_list:
+                    if c['id']==a['category_id']:
+                        class_name = c['name']
+                print(i_meta,a["bbox"],i_height,i_width,date_created,class_name,flush=True) 
+                send_bbox(i_meta,a["bbox"],i_height,i_width,date_created,class_name,port)
+               # update_image_table(i_meta[0])
+              #  records = check_ann_table(int(port),i_filename,i_cam)
+              #  if not records:
+              #      send_ann_table(int(port),i_filename,i_cam)
+              #      print('ann tasks table uploaded')
+        
+############
     # Try to load created annotation via cocoapi
     try:
         coco_loader.COCO(file_object.name)
@@ -329,19 +478,22 @@ def dump(file_object, annotations):
         raise
 
 def load(file_object, annotations):
+    import json
+    print('in coco.py hello',flush=True)
     from pycocotools import coco as coco_loader
     from pycocotools import mask as mask_utils
     import numpy as np
-
+    print(file_object.name)
     coco = coco_loader.COCO(file_object.name)
     labels={cat['id']: cat['name'] for cat in coco.loadCats(coco.getCatIds())}
-
+    print('printing in annotation.py')
     group_idx = 0
     for img_id in coco.getImgIds():
         anns = coco.loadAnns(coco.getAnnIds(imgIds=img_id))
         img = coco.loadImgs(ids=img_id)[0]
         frame_number = annotations.match_frame(img['file_name'])
         for ann in anns:
+            print(ann['bbox'],flush=True)
             group = 0
             label_name = labels[ann['category_id']]
             polygons = []

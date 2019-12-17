@@ -361,6 +361,7 @@ class AnnotationSaverView {
 
         this._saveButton = $('#saveButton').on('click', () => {
             this._controller.save();
+            console.log('inside the damn function')
         }).attr('title', saveHelp);
 
         this._autoSaveBox = $('#autoSaveBox').on('change', (e) => {
@@ -386,7 +387,7 @@ class AnnotationSaverView {
 
     onAnnotationSaverUpdate(state) {
         if (state.status === 'saveStart') {
-            this._overlay = showOverlay('Annotations are being saved..');
+            this._overlay = showOverlay('Annotations are being saved.. #thuglyf');
             this._saveButton.prop('disabled', true).text('Saving..');
         } else if (state.status === 'saveDone') {
             this._saveButton.text('Successful save');
